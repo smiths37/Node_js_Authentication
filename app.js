@@ -34,7 +34,8 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const usersSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 //using cipher encryption - using mongoose-encryption
 //usersSchema.plugin(encrypt, {secret: process.env.ENCRYPT_KEY, encryptedFields: ["password"]});
@@ -157,15 +158,16 @@ app.route("/register")
     });
   });
 
-
-
 app.get("/secrets", function(req, res){
-  //check if user is authenticated
-  if (req.isAuthenticated()) {
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
+  User.find({"secret": {$ne: null}}, function(err, users){
+    if (err) {
+      console.log(err);
+    } else {
+      if (users){
+        res.render("secrets", {usersWithSecrets: users});
+      }
+    }
+  })
 })
 
 app.get("/logout", function(req, res){
@@ -174,6 +176,31 @@ app.get("/logout", function(req, res){
   res.redirect("/");
 });
 
+app.route("/submit")
+  .get(function(req, res){
+    //check if user is authenticated
+    if (req.isAuthenticated()) {
+      res.render("submit");
+    } else {
+      res.redirect("/login");
+    }
+  })
+  .post(function(req, res){
+    const submittedSecret = req.body.secret;
+    //find the current user and save the secret to their profile
+    User.findById(req.user._id, function(err, user){
+      if (err) {
+        console.log(err);
+      } else {
+        if (user) {
+          user.secret = submittedSecret;
+          user.save(function(){
+            res.redirect("/secrets");
+          });
+        }
+      }
+    });
+  });
 
 app.listen(3000, function() {
   console.log("Server started on port 3000.");
